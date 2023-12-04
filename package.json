@@ -1,0 +1,18 @@
+{
+  "name": "belajar-puppeteer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^20.10.3",
+    "dotenv": "^16.3.1",
+    "puppeteer": "^21.5.2",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.2"
+  }
+}
