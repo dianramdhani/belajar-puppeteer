@@ -7,12 +7,14 @@ async function main() {
     defaultViewport: null,
   })
   const [page] = await browser.pages()
-  const { URL, EMAIL, PASSWORD, URL_PRODUCT, URL_CART } = process.env
+  const { URL, EMAIL, PASSWORD, URL_PRODUCT, URL_CART, URL_PAYMENT } =
+    process.env
 
   try {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
     await deleteBanner(page)
+    await checkOut(page, URL_CART ?? '', URL_PAYMENT ?? '')
   } catch (error) {
     console.error(error)
   }
@@ -21,10 +23,8 @@ main()
 
 async function deleteBanner(page: Page) {
   try {
-    const banner = await page.waitForSelector('[id^="moe-onsite-campaign-"]', {
-      visible: true,
-      timeout: 10000,
-    })
+    await page.waitForSelector('[id^="moe-onsite-campaign-"]')
+    const banner = await page.$('[id^="moe-onsite-campaign-"]')
     await banner?.evaluateHandle((el) => el.remove())
     console.info('delete welcome banner')
   } catch (error) {
@@ -32,10 +32,23 @@ async function deleteBanner(page: Page) {
   }
 }
 
-async function goToCart(page: Page, URL_CART: string) {
-  await page.goto(URL_CART)
-  const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
-  await buttonLanjutkan?.click()
+async function checkOut(page: Page, URL_CART: string, URL_PAYMENT: string) {
+  try {
+    // await page.goto(URL_CART)
+    // const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
+    // await buttonLanjutkan?.click()
+    // // TODO: masih perlu di optimize masih error
+    // await page.waitForFunction(`window.location.href !== ${URL_CART}`)
+
+    // await page.goto(URL_PAYMENT)
+    // const buttonVA = await page.$('div ::-p-text(Virtual Account)')
+    // await buttonVA?.click()
+    // const buttonOrder = await page.$('div ::-p-text(order sekarang)')
+    // await buttonOrder?.click()
+    console.info('berhasil checkout')
+  } catch (error) {
+    throw error
+  }
 }
 
 async function addProductToCart(page: Page, URL_PRODUCT: string) {
@@ -52,10 +65,8 @@ async function login(page: Page, email: string, password: string) {
         await buttonOKLogin?.click()
       })(),
       (async () => {
-        const buttonNantiSaja = await page.waitForSelector(
-          '#desktopBannerWrapped button',
-          { timeout: 10000 }
-        )
+        await page.waitForSelector('#desktopBannerWrapped button')
+        const buttonNantiSaja = await page.$('#desktopBannerWrapped button')
         await buttonNantiSaja?.click()
       })(),
     ])
@@ -71,10 +82,8 @@ async function login(page: Page, email: string, password: string) {
         await buttonLogin?.click()
       })(),
       (async () => {
-        const modalLogin = await page.waitForSelector(
-          '[data-testid="login-form"]',
-          { timeout: 5000 }
-        )
+        await page.waitForSelector('[data-testid="login-form"]')
+        const modalLogin = await page.$('[data-testid="login-form"]')
         if (modalLogin) {
           const inputName = await modalLogin.$('[name="username"]')
           await inputName?.type(email)
