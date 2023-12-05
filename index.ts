@@ -1,5 +1,9 @@
+import { CronJob } from 'cron'
 import 'dotenv/config'
 import puppeteer, { Page } from 'puppeteer'
+
+const jobLogin = new CronJob(process.env['TIME_LOGIN'] ?? '', main)
+jobLogin.start()
 
 async function main() {
   const browser = await puppeteer.launch({
@@ -7,20 +11,23 @@ async function main() {
     defaultViewport: null,
   })
   const [page] = await browser.pages()
-  const { URL, EMAIL, PASSWORD, URL_PRODUCT, URL_CART, URL_PAYMENT } =
+  const { URL, EMAIL, PASSWORD, TIME_PAYMENT, URL_CART, URL_PAYMENT } =
     process.env
+  const jobPayment = new CronJob(TIME_PAYMENT ?? '', () =>
+    checkOut(page, URL_CART ?? '', URL_PAYMENT ?? '')
+  )
 
   try {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
     await deleteBanner(page)
-    // await addProductToCart(page, URL_PRODUCT ?? '')
-    await checkOut(page, URL_CART ?? '', URL_PAYMENT ?? '')
   } catch (error) {
     console.error(error)
+    throw error
+  } finally {
+    jobPayment.start()
   }
 }
-main()
 
 async function deleteBanner(page: Page) {
   try {
@@ -43,7 +50,8 @@ async function checkOut(page: Page, URL_CART: string, URL_PAYMENT: string) {
     const buttonVA = await page.$('div ::-p-text(Virtual Account)')
     await buttonVA?.click()
     const buttonOrder = await page.$('div ::-p-text(order sekarang)')
-    await buttonOrder?.click()
+    // TODO: hilangkan implement mode dev dan prod
+    // await buttonOrder?.click()
     console.info('berhasil checkout')
   } catch (error) {
     throw error
@@ -71,7 +79,7 @@ async function login(page: Page, email: string, password: string) {
     ])
     console.info('clean banner')
   } catch (error) {
-    throw error
+    console.warn('gagal clean banner')
   }
 
   try {
