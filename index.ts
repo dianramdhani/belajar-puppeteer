@@ -12,14 +12,25 @@ async function main() {
   try {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
-    await page.reload()
-    await addProductToCart(page, URL_PRODUCT ?? '')
-    await goToCart(page, URL_CART ?? '')
+    await deleteBanner(page)
   } catch (error) {
     console.error(error)
   }
 }
 main()
+
+async function deleteBanner(page: Page) {
+  try {
+    const banner = await page.waitForSelector('[id^="moe-onsite-campaign-"]', {
+      visible: true,
+      timeout: 10000,
+    })
+    await banner?.evaluateHandle((el) => el.remove())
+    console.info('delete welcome banner')
+  } catch (error) {
+    throw error
+  }
+}
 
 async function goToCart(page: Page, URL_CART: string) {
   await page.goto(URL_CART)
