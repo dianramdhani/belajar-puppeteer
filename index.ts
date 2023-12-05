@@ -14,6 +14,7 @@ async function main() {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
     await deleteBanner(page)
+    // await addProductToCart(page, URL_PRODUCT ?? '')
     await checkOut(page, URL_CART ?? '', URL_PAYMENT ?? '')
   } catch (error) {
     console.error(error)
@@ -34,17 +35,15 @@ async function deleteBanner(page: Page) {
 
 async function checkOut(page: Page, URL_CART: string, URL_PAYMENT: string) {
   try {
-    // await page.goto(URL_CART)
-    // const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
-    // await buttonLanjutkan?.click()
-    // // TODO: masih perlu di optimize masih error
-    // await page.waitForFunction(`window.location.href !== ${URL_CART}`)
-
-    // await page.goto(URL_PAYMENT)
-    // const buttonVA = await page.$('div ::-p-text(Virtual Account)')
-    // await buttonVA?.click()
-    // const buttonOrder = await page.$('div ::-p-text(order sekarang)')
-    // await buttonOrder?.click()
+    await page.goto(URL_CART)
+    const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
+    await buttonLanjutkan?.click()
+    await page.waitForNavigation()
+    await page.goto(URL_PAYMENT)
+    const buttonVA = await page.$('div ::-p-text(Virtual Account)')
+    await buttonVA?.click()
+    const buttonOrder = await page.$('div ::-p-text(order sekarang)')
+    await buttonOrder?.click()
     console.info('berhasil checkout')
   } catch (error) {
     throw error
