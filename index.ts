@@ -14,9 +14,9 @@ async function main() {
   const [page] = await browser.pages()
   const { URL, EMAIL, PASSWORD, TIME_PAYMENT, URL_CART, URL_PAYMENT } =
     process.env
-  const jobPayment = new CronJob(TIME_PAYMENT ?? '', () =>
+  const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
     checkOut(page, URL_PAYMENT ?? '')
-  )
+  })
 
   try {
     await page.goto(URL ?? '')
@@ -24,7 +24,7 @@ async function main() {
     await page.waitForNavigation()
     await page.goto(URL_CART ?? '')
     await deleteBanner(page)
-    jobPayment.start()
+    ENV === 'prod' ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
   } catch (error) {
     console.warn('ada error gatau apa', error)
   }
