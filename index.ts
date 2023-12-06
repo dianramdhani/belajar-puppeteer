@@ -21,12 +21,41 @@ async function main() {
   try {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
-    await page.waitForNavigation()
-    await page.goto(URL_CART ?? '')
-    await deleteBanner(page)
+    await prepareCheckout(page, URL_CART ?? '')
     ENV === 'prod' ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
   } catch (error) {
     console.warn('ada error gatau apa', error)
+  }
+}
+
+async function prepareCheckout(page: Page, URL_CART: string) {
+  try {
+    await page.goto(URL_CART)
+    const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
+    await buttonLanjutkan?.click()
+    await page.waitForNavigation()
+    const buttonExpedition = await page.$(
+      '[aria-label="Choose shipping method"]'
+    )
+    await buttonExpedition?.click()
+    await page.waitForSelector(
+      '[data-testid="shipping-method-dropdown"] p ::-p-text(JNE)'
+    )
+    const selectExpedition = await page?.$(
+      '[data-testid="shipping-method-dropdown"] li:nth-child(3)'
+    )
+    await selectExpedition?.click()
+    const buttonPilihPembayaran = await page.waitForSelector(
+      'button:not(.btn-disabled) ::-p-text(Pilih Pembayaran)'
+    )
+    await buttonPilihPembayaran?.click()
+    await page.waitForNavigation()
+    console.info('berhasil prepare checkout')
+  } catch (error) {
+    console.warn('gagal prepare checkout', error)
+  } finally {
+    await page.goto(URL_CART)
+    await deleteBanner(page)
   }
 }
 
@@ -111,5 +140,7 @@ async function login(page: Page, email: string, password: string) {
   } catch (error) {
     console.warn('gagal login')
     throw error
+  } finally {
+    await deleteBanner(page)
   }
 }
