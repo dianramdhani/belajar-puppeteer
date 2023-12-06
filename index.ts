@@ -4,7 +4,7 @@ import puppeteer, { Page } from 'puppeteer'
 
 const ENV = process.env['ENV'] ?? 'dev'
 const jobLogin = new CronJob(process.env['TIME_LOGIN'] ?? '', main)
-jobLogin.start()
+ENV === 'prod' ? jobLogin.start() : main()
 
 async function main() {
   const browser = await puppeteer.launch({
@@ -21,12 +21,12 @@ async function main() {
   try {
     await page.goto(URL ?? '')
     await login(page, EMAIL ?? '', PASSWORD ?? '')
+    await page.waitForNavigation()
     await page.goto(URL_CART ?? '')
     await deleteBanner(page)
     jobPayment.start()
   } catch (error) {
-    console.warn(error)
-    throw error
+    console.warn('ada error gatau apa', error)
   }
 }
 
@@ -37,7 +37,7 @@ async function deleteBanner(page: Page) {
     await banner?.evaluateHandle((el) => el.remove())
     console.info('delete welcome banner')
   } catch (error) {
-    throw error
+    console.warn('delete welcome banner gagal')
   }
 }
 
