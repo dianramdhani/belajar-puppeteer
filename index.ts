@@ -55,7 +55,7 @@ async function prepareCheckout(page: Page, URL_CART: string) {
     console.warn('gagal prepare checkout', error)
   } finally {
     await page.goto(URL_CART)
-    await deleteBanner(page)
+    deleteBanner(page)
   }
 }
 
