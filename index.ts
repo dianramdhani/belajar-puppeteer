@@ -30,6 +30,9 @@ function main() {
 
     try {
       await page.goto(URL ?? '')
+    } catch (error) {}
+
+    try {
       await login(page, emails[index], PASSWORD ?? '')
 
       if (!isProd && CART_STATUS === 'clear') {
@@ -40,7 +43,7 @@ function main() {
         isProd ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
       }
     } catch (error) {
-      console.warn('ada error gatau apa', error)
+      console.warn(`ada error ${emails[index]}`, error)
     }
   })
 }

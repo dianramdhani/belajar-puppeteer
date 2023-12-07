@@ -1,55 +1,40 @@
 import { Page } from 'puppeteer'
 
 export async function login(page: Page, email: string, password: string) {
-  try {
-    await Promise.all([
-      (async () => {
-        const buttonOKLogin = await page.$('#driver-popover-item button')
-        await buttonOKLogin?.click()
-      })(),
-      (async () => {
-        await page.waitForSelector('#desktopBannerWrapped button')
-        const buttonNantiSaja = await page.$('#desktopBannerWrapped button')
-        await buttonNantiSaja?.click()
-      })(),
-    ])
-    console.info('clean banner')
-  } catch (error) {
-    console.warn('gagal clean banner')
-  }
+  ;(async () => {
+    try {
+      const banner = await page.waitForSelector('#desktopBannerWrapped')
+      await banner?.evaluateHandle((el) => el.remove())
+    } catch (error) {}
+  })()
 
   try {
-    await Promise.all([
-      (async () => {
-        const buttonLogin = await page.$('#login-button')
-        await buttonLogin?.click()
-      })(),
-      (async () => {
-        await page.waitForSelector('[data-testid="login-form"]')
-        const modalLogin = await page.$('[data-testid="login-form"]')
-        if (modalLogin) {
-          const inputName = await modalLogin.$('[name="username"]')
-          await inputName?.type(email)
+    const buttonOK = await page.waitForSelector('#driver-popover-item button')
+    await buttonOK?.click()
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+  } catch (error) {}
 
-          const [inputPassword, checkRemember, buttonLogin] = await Promise.all(
-            [
-              modalLogin.$('[name="password"]'),
-              modalLogin.$('#remember-me'),
-              modalLogin.$('form button'),
-            ]
-          )
-          await inputPassword?.type(password)
-          await checkRemember?.click()
-          await buttonLogin?.click()
-        }
-      })(),
-    ])
-    console.info('login success')
+  try {
+    const buttonLogin = await page.$('#login-button')
+    await buttonLogin?.click()
+    await page.waitForSelector('[data-testid="login-form"]')
+    const modalLogin = await page.$('[data-testid="login-form"]')
+    if (modalLogin) {
+      const inputName = await modalLogin.$('[name="username"]')
+      await inputName?.type(email)
+      const [inputPassword, checkRemember, buttonLogin] = await Promise.all([
+        modalLogin.waitForSelector('[name="password"]'),
+        modalLogin.waitForSelector('#remember-me'),
+        modalLogin.waitForSelector('form button'),
+      ])
+      await inputPassword?.type(password)
+      await checkRemember?.click()
+      await buttonLogin?.click()
+      console.info('login success')
+      await deleteBanner(page)
+    }
   } catch (error) {
     console.warn('gagal login')
-    throw error
-  } finally {
-    await deleteBanner(page)
   }
 }
 
@@ -59,15 +44,16 @@ export async function deleteBanner(page: Page) {
     const banner = await page.$('[id^="moe-onsite-campaign-"]')
     await banner?.evaluateHandle((el) => el.remove())
     console.info('delete welcome banner')
-  } catch (error) {
-    console.warn('delete welcome banner gagal')
-  }
+  } catch (error) {}
 }
 
 export async function addProductToCart(page: Page, urlProduct: string) {
-  await page.goto(urlProduct)
-  const buttonAddCart = await page.$('#btn-add-to-cart')
-  await buttonAddCart?.click()
+  try {
+    await page.goto(urlProduct)
+    const buttonAddCart = await page.$('#btn-add-to-cart')
+    await buttonAddCart?.click()
+    console.info('tambah produk')
+  } catch (error) {}
 }
 
 export async function prepareCheckout(page: Page, urlCart: string) {
