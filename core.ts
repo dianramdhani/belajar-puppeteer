@@ -116,3 +116,19 @@ export async function checkOut(page: Page, urlPayment: string) {
     throw error
   }
 }
+
+export async function clearCart(page: Page, urlCart: string) {
+  try {
+    await page.goto(urlCart)
+    const buttonHapus = await page.$('[data-testid="delete-multiple"]')
+    await buttonHapus?.click()
+    const dialog = await page.waitForSelector(
+      '[data-testid="delete-cart-modal"]'
+    )
+    const buttonConfirmHapus = await dialog?.$('[aria-label="delete-item"]')
+    await buttonConfirmHapus?.click()
+    console.info('berhasil clear cart')
+  } catch (error) {
+    console.warn('gagal clear cart')
+  }
+}

@@ -1,9 +1,16 @@
 import 'dotenv/config'
 import puppeteer from 'puppeteer'
 import { CronJob } from 'cron'
-import { addProductToCart, checkOut, login, prepareCheckout } from './core'
+import {
+  addProductToCart,
+  checkOut,
+  clearCart,
+  login,
+  prepareCheckout,
+} from './core'
 
-const { URL, PASSWORD, TIME_PAYMENT, URL_PAYMENT, URL_CART } = process.env
+const { URL, PASSWORD, TIME_PAYMENT, URL_PAYMENT, URL_CART, CART_STATUS } =
+  process.env
 const emails = (process.env['EMAILS'] ?? '').split(' ')
 const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
 const isProd = process.env['ENV'] === 'prod'
@@ -24,9 +31,14 @@ function main() {
     try {
       await page.goto(URL ?? '')
       await login(page, emails[index], PASSWORD ?? '')
-      await addProductToCart(page, urlProduct)
-      await prepareCheckout(page, URL_CART ?? '')
-      isProd ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
+
+      if (!isProd && CART_STATUS === 'clear') {
+        await clearCart(page, URL_CART ?? '')
+      } else {
+        await addProductToCart(page, urlProduct)
+        await prepareCheckout(page, URL_CART ?? '')
+        isProd ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
+      }
     } catch (error) {
       console.warn('ada error gatau apa', error)
     }
