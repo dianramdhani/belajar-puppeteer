@@ -1,8 +1,10 @@
+import { resolve } from 'path'
 import puppeteer from 'puppeteer'
 import type { Page } from 'puppeteer'
 
 export default class Processor {
   private page?: Page
+  private readonly time = new Date().getTime()
 
   constructor(private name: string) {}
 
@@ -32,7 +34,7 @@ export default class Processor {
       console.warn(`${this.name} buka page kelamaan`)
     } finally {
       await this.page?.screenshot({
-        path: `./ss/${this.name}-1-before-login.jpg`,
+        path: `./ss-${this.time}/${this.name}-1-before-login.jpg`,
         optimizeForSpeed: true,
       })
     }
@@ -69,8 +71,9 @@ export default class Processor {
         await inputPassword?.type(password)
         await checkRemember?.click()
         await buttonLogin?.click()
+        await new Promise((resolve) => setTimeout(resolve, 5000))
         await this.page?.screenshot({
-          path: `./ss/${this.name}-2-after-login.jpg`,
+          path: `./ss-${this.time}/${this.name}-2-after-login.jpg`,
           optimizeForSpeed: true,
         })
         console.info(`${this.name} login success`)
@@ -105,7 +108,7 @@ export default class Processor {
     try {
       const buttonBuyNow = await this.page?.waitForSelector('#btn-buy-now')
       await this.page?.screenshot({
-        path: `./ss/${this.name}-3-add-product-to-cart.jpg`,
+        path: `./ss-${this.time}/${this.name}-3-add-product-to-cart.jpg`,
         optimizeForSpeed: true,
       })
       await buttonBuyNow?.click()
@@ -118,7 +121,7 @@ export default class Processor {
   async checkOut() {
     try {
       await this.page?.screenshot({
-        path: `./ss/${this.name}-4-cart.jpg`,
+        path: `./ss-${this.time}/${this.name}-4-cart.jpg`,
         optimizeForSpeed: true,
       })
       const buttonLanjutkan = await this.page?.waitForSelector(
@@ -143,7 +146,7 @@ export default class Processor {
       )
       await selectExpedition?.click()
       await this.page?.screenshot({
-        path: `./ss/${this.name}-5-select-expedition.jpg`,
+        path: `./ss-${this.time}/${this.name}-5-select-expedition.jpg`,
         optimizeForSpeed: true,
       })
       const buttonPilihPembayaran = await this.page?.waitForSelector(
@@ -161,7 +164,7 @@ export default class Processor {
       )
       await buttonVA?.click()
       await this.page?.screenshot({
-        path: `./ss/${this.name}-6-payment-method.jpg`,
+        path: `./ss-${this.time}/${this.name}-6-payment-method.jpg`,
         optimizeForSpeed: true,
       })
       const buttonOrder = await this.page?.waitForSelector(
@@ -169,7 +172,7 @@ export default class Processor {
       )
       process.env['ENV'] === 'prod' && (await buttonOrder?.click())
       await this.page?.screenshot({
-        path: `./ss/${this.name}-7-final.jpg`,
+        path: `./ss-${this.time}/${this.name}-7-final.jpg`,
         optimizeForSpeed: true,
       })
       console.info(`${this.name} berhasil checkout`)
@@ -182,7 +185,7 @@ export default class Processor {
     try {
       await this.page?.goto(urlCart)
       await this.page?.screenshot({
-        path: `./ss/${this.name}-3-cart.jpg`,
+        path: `./ss-${this.time}/${this.name}-3-cart.jpg`,
         optimizeForSpeed: true,
       })
       const buttonHapus = await this.page?.waitForSelector(
@@ -197,9 +200,9 @@ export default class Processor {
       )
       await buttonConfirmHapus?.click()
       console.info(`${this.name} berhasil clear cart`)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 5000))
       await this.page?.screenshot({
-        path: `./ss/${this.name}-4-final.jpg`,
+        path: `./ss-${this.time}/${this.name}-4-final.jpg`,
         optimizeForSpeed: true,
       })
     } catch (error) {

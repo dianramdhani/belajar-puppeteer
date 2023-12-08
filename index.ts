@@ -14,7 +14,9 @@ isProd ? jobLogin.start() : main()
 function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const processor = new Processor(emails[index].split('@')[0])
-    const jobPayment = new CronJob(TIME_PAYMENT ?? '', processor.checkOut)
+    const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
+      processor.checkOut()
+    })
 
     try {
       await processor.initialize(BROWSER_TYPE ?? '')
