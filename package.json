@@ -4,16 +4,14 @@
   "description": "",
   "main": "index.ts",
   "scripts": {
-    "start": "del-cli --force ss && mkdirp ss && ts-node index.ts"
+    "start": "ts-node index.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@types/node": "^20.10.3",
     "cron": "^3.1.6",
-    "del-cli": "^5.1.0",
     "dotenv": "^16.3.1",
-    "mkdirp": "^3.0.1",
     "puppeteer": "^21.5.2",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.2"
