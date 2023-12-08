@@ -1,13 +1,7 @@
 import 'dotenv/config'
 import puppeteer from 'puppeteer'
 import { CronJob } from 'cron'
-import {
-  addProductToCart,
-  checkOut,
-  clearCart,
-  login,
-  prepareCheckout,
-} from './core'
+import { addProductToCart, checkOut, clearCart, login } from './core'
 
 const { URL, PASSWORD, TIME_PAYMENT, URL_PAYMENT, URL_CART, CART_STATUS } =
   process.env
@@ -20,12 +14,12 @@ isProd ? jobLogin.start() : main()
 function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const browser = await puppeteer.launch({
-      headless: false,
+      headless: 'new',
       defaultViewport: null,
     })
     const [page] = await browser.pages()
     const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
-      checkOut(page, URL_PAYMENT ?? '')
+      checkOut(page, URL_CART ?? '')
     })
 
     try {
@@ -39,8 +33,7 @@ function main() {
         await clearCart(page, URL_CART ?? '')
       } else {
         await addProductToCart(page, urlProduct)
-        await prepareCheckout(page, URL_CART ?? '')
-        isProd ? jobPayment.start() : checkOut(page, URL_PAYMENT ?? '')
+        isProd ? jobPayment.start() : checkOut(page, URL_CART ?? '')
       }
     } catch (error) {
       console.warn(`ada error ${emails[index]}`, error)

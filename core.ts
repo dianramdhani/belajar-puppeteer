@@ -50,26 +50,29 @@ export async function deleteBanner(page: Page) {
 export async function addProductToCart(page: Page, urlProduct: string) {
   try {
     await page.goto(urlProduct)
-    const buttonAddCart = await page.$('#btn-add-to-cart')
-    await buttonAddCart?.click()
+    deleteBanner(page)
+    const buttonBuyNow = await page.waitForSelector('#btn-buy-now')
+    await buttonBuyNow?.click()
+    await page.waitForNavigation()
     console.info('tambah produk')
   } catch (error) {}
 }
 
-export async function prepareCheckout(page: Page, urlCart: string) {
+export async function checkOut(page: Page, urlCart: string) {
   try {
-    await page.goto(urlCart)
-    const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
+    const buttonLanjutkan = await page.waitForSelector(
+      '[data-testid="cart-btn-summary-cta"]'
+    )
     await buttonLanjutkan?.click()
     await page.waitForNavigation()
-    const buttonExpedition = await page.$(
+    const buttonExpedition = await page.waitForSelector(
       '[aria-label="Choose shipping method"]'
     )
     await buttonExpedition?.click()
     await page.waitForSelector(
       '[data-testid="shipping-method-dropdown"] p ::-p-text(JNE)'
     )
-    const selectExpedition = await page?.$(
+    const selectExpedition = await page?.waitForSelector(
       '[data-testid="shipping-method-dropdown"] li:nth-child(3)'
     )
     await selectExpedition?.click()
@@ -78,24 +81,13 @@ export async function prepareCheckout(page: Page, urlCart: string) {
     )
     await buttonPilihPembayaran?.click()
     await page.waitForNavigation()
-    console.info('berhasil prepare checkout')
-  } catch (error) {
-    console.warn('gagal prepare checkout', error)
-  } finally {
-    await page.goto(urlCart)
-    deleteBanner(page)
-  }
-}
-
-export async function checkOut(page: Page, urlPayment: string) {
-  try {
-    const buttonLanjutkan = await page.$('[data-testid="cart-btn-summary-cta"]')
-    await buttonLanjutkan?.click()
-    await page.waitForNavigation()
-    await page.goto(urlPayment)
-    const buttonVA = await page.$('div ::-p-text(Virtual Account)')
+    const buttonVA = await page.waitForSelector(
+      'div ::-p-text(Virtual Account)'
+    )
     await buttonVA?.click()
-    const buttonOrder = await page.$('div ::-p-text(order sekarang)')
+    const buttonOrder = await page.waitForSelector(
+      'div ::-p-text(order sekarang)'
+    )
     process.env['ENV'] === 'prod' && (await buttonOrder?.click())
     console.info('berhasil checkout')
   } catch (error) {
