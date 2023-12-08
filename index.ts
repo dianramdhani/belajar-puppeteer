@@ -1,44 +1,32 @@
 import 'dotenv/config'
-import puppeteer from 'puppeteer'
+import Processor from './processor'
 import { CronJob } from 'cron'
-import { addProductToCart, checkOut, clearCart, login } from './core'
 
 const { URL, PASSWORD, TIME_PAYMENT, URL_CART, CART_STATUS } = process.env
 const emails = (process.env['EMAILS'] ?? '').split(' ')
 const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
 const isProd = process.env['ENV'] === 'prod'
+
 const jobLogin = new CronJob(process.env['TIME_LOGIN'] ?? '', main)
 isProd ? jobLogin.start() : main()
 
 function main() {
   urlProducts.forEach(async (urlProduct, index) => {
-    const browser = await puppeteer.launch({
-      headless: 'new',
-      defaultViewport: {
-        width: 1920,
-        height: 1080,
-      },
-    })
-    const [page] = await browser.pages()
-    const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
-      checkOut(page, URL_CART ?? '')
-    })
+    const processor = new Processor(emails[index].split('@')[0])
+    await processor.initialize()
+    const jobPayment = new CronJob(TIME_PAYMENT ?? '', processor.checkOut)
 
     try {
-      await page.goto(URL ?? '')
-    } catch (error) {}
-
-    try {
-      await login(page, emails[index], PASSWORD ?? '')
+      await processor.login(URL ?? '', emails[index], PASSWORD ?? '')
 
       if (!isProd && CART_STATUS === 'clear') {
-        await clearCart(page, URL_CART ?? '')
+        await processor.clearCart(URL_CART ?? '')
       } else {
-        await addProductToCart(page, urlProduct)
-        isProd ? jobPayment.start() : checkOut(page, URL_CART ?? '')
+        await processor.addProductToCart(urlProduct)
+        isProd ? jobPayment.start() : await processor.checkOut()
       }
     } catch (error) {
-      console.warn(`ada error ${emails[index]}`, error)
+      console.error(error)
     }
   })
 }
