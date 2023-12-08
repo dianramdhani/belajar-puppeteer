@@ -6,14 +6,21 @@ export default class Processor {
 
   constructor(private name: string) {}
 
-  async initialize() {
+  async initialize(browserType: string) {
     const browser = await puppeteer.launch({
-      headless: false,
       args: ['--enable-gpu'],
-      defaultViewport: {
-        width: 1920,
-        height: 1080,
-      },
+      ...(browserType === 'headless'
+        ? {
+            headless: 'new',
+            defaultViewport: {
+              width: 1920,
+              height: 1080,
+            },
+          }
+        : {
+            headless: false,
+            defaultViewport: null,
+          }),
     })
     this.page = (await browser.pages())[0]
   }
