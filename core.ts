@@ -1,6 +1,10 @@
 import { Page } from 'puppeteer'
 
+let name: string = ''
+
 export async function login(page: Page, email: string, password: string) {
+  name = email.split('@')[0]
+  await page.screenshot({ path: `./ss/${name}-1-before-login.jpg` })
   ;(async () => {
     try {
       const banner = await page.waitForSelector('#desktopBannerWrapped')
@@ -32,6 +36,7 @@ export async function login(page: Page, email: string, password: string) {
       await buttonLogin?.click()
       console.info('login success')
       await deleteBanner(page)
+      await page.screenshot({ path: `./ss/${name}-2-after-login.jpg` })
     }
   } catch (error) {
     console.warn('gagal login')
@@ -52,8 +57,10 @@ export async function addProductToCart(page: Page, urlProduct: string) {
     await page.goto(urlProduct)
     deleteBanner(page)
     const buttonBuyNow = await page.waitForSelector('#btn-buy-now')
+    await page.screenshot({ path: `./ss/${name}-3-add-product-to-cart.jpg` })
     await buttonBuyNow?.click()
     await page.waitForNavigation()
+    await page.screenshot({ path: `./ss/${name}-4-cart.jpg` })
     console.info('tambah produk')
   } catch (error) {}
 }
@@ -76,6 +83,7 @@ export async function checkOut(page: Page, urlCart: string) {
       '[data-testid="shipping-method-dropdown"] li:nth-child(3)'
     )
     await selectExpedition?.click()
+    await page.screenshot({ path: `./ss/${name}-5-select-expedition.jpg` })
     const buttonPilihPembayaran = await page.waitForSelector(
       'button:not(.btn-disabled) ::-p-text(Pilih Pembayaran)'
     )
@@ -85,10 +93,13 @@ export async function checkOut(page: Page, urlCart: string) {
       'div ::-p-text(Virtual Account)'
     )
     await buttonVA?.click()
+    await page.screenshot({ path: `./ss/${name}-6-payment-method.jpg` })
     const buttonOrder = await page.waitForSelector(
       'div ::-p-text(order sekarang)'
     )
     process.env['ENV'] === 'prod' && (await buttonOrder?.click())
+    page.waitForNavigation()
+    await page.screenshot({ path: `./ss/${name}-7-final.jpg` })
     console.info('berhasil checkout')
   } catch (error) {
     throw error
@@ -98,6 +109,8 @@ export async function checkOut(page: Page, urlCart: string) {
 export async function clearCart(page: Page, urlCart: string) {
   try {
     await page.goto(urlCart)
+    await page.waitForNavigation()
+    await page.screenshot({ path: `./ss/${name}-3-cart.jpg` })
     const buttonHapus = await page.$('[data-testid="delete-multiple"]')
     await buttonHapus?.click()
     const dialog = await page.waitForSelector(
@@ -106,6 +119,8 @@ export async function clearCart(page: Page, urlCart: string) {
     const buttonConfirmHapus = await dialog?.$('[aria-label="delete-item"]')
     await buttonConfirmHapus?.click()
     console.info('berhasil clear cart')
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    await page.screenshot({ path: `./ss/${name}-4-final.jpg` })
   } catch (error) {
     console.warn('gagal clear cart')
   }

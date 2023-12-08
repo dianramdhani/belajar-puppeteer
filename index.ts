@@ -3,8 +3,7 @@ import puppeteer from 'puppeteer'
 import { CronJob } from 'cron'
 import { addProductToCart, checkOut, clearCart, login } from './core'
 
-const { URL, PASSWORD, TIME_PAYMENT, URL_PAYMENT, URL_CART, CART_STATUS } =
-  process.env
+const { URL, PASSWORD, TIME_PAYMENT, URL_CART, CART_STATUS } = process.env
 const emails = (process.env['EMAILS'] ?? '').split(' ')
 const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
 const isProd = process.env['ENV'] === 'prod'
@@ -15,7 +14,10 @@ function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const browser = await puppeteer.launch({
       headless: 'new',
-      defaultViewport: null,
+      defaultViewport: {
+        width: 1920,
+        height: 1080,
+      },
     })
     const [page] = await browser.pages()
     const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
