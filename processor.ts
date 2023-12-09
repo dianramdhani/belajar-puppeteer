@@ -86,6 +86,10 @@ export default class Processor {
         console.info(`${this.name} login success`)
       }
     } catch (error) {
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/2-gagal-login.jpg`,
+        optimizeForSpeed: true,
+      })
       console.warn(`${this.name} gagal login`)
     }
 
@@ -107,6 +111,10 @@ export default class Processor {
     try {
       await this.page?.goto(urlProduct)
     } catch (error) {
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/3-gagal-menuju-page-produk.jpg`,
+        optimizeForSpeed: true,
+      })
       throw new Error(`${this.name} gagal membuka page produk`)
     } finally {
       this.deleteBanner()
@@ -120,28 +128,36 @@ export default class Processor {
       })
       await buttonBuyNow?.click()
       console.info(`${this.name} tambah produk`)
-      await this.page?.waitForNavigation()
+    } catch (error) {
       await this.page?.screenshot({
-        path: `./ss/${this.dirName}/4-cart.jpg`,
+        path: `./ss/${this.dirName}/3-gagal-tambah-produk.jpg`,
         optimizeForSpeed: true,
       })
-    } catch (error) {
       throw new Error(`${this.name} gagal tambah produk`)
     }
+
+    try {
+      this.page?.waitForNavigation().then(() =>
+        this.page?.screenshot({
+          path: `./ss/${this.dirName}/4-cart.jpg`,
+          optimizeForSpeed: true,
+        })
+      )
+    } catch (error) {}
   }
 
-  async checkOut() {
-    console.time(`${this.name} lama CO`)
-    console.time(`${this.name} klik tombol lanjutkan`)
+  async prepareCheckout(urlCart: string) {
     try {
       const buttonLanjutkan = await this.page?.waitForSelector(
         '[data-testid="cart-btn-summary-cta"]'
       )
       await buttonLanjutkan?.click()
-      console.timeEnd(`${this.name} klik tombol lanjutkan`)
-      console.time(`${this.name} klik tombol pilih pembayaran`)
       await this.page?.waitForNavigation()
     } catch (error) {
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/5-gagal-menuju-form-expedition.jpg`,
+        optimizeForSpeed: true,
+      })
       throw new Error(`${this.name} gagal menuju form expedition`)
     }
 
@@ -165,14 +181,53 @@ export default class Processor {
         'button:not(.btn-disabled) ::-p-text(Pilih Pembayaran)'
       )
       await buttonPilihPembayaran?.click()
-      console.timeEnd(`${this.name} klik tombol pilih pembayaran`)
-      console.time(`${this.name} berhasil checkout`)
+      await this.page?.waitForNavigation()
     } catch (error) {
-      throw new Error(`${this.name} gagal menuju page payment`)
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/5-gagal-menuju-page-payment.jpg`,
+        optimizeForSpeed: true,
+      })
+      console.warn(`${this.name} gagal menuju page payment`)
     }
 
     try {
+      this.page?.on('dialog', (dialog) => dialog.accept())
+      await this.page?.goto(urlCart)
+      console.info(`${this.name} berhasil prepare checkout`)
+    } catch (error) {
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/5-gagal-menuju-url-cart.jpg`,
+        optimizeForSpeed: true,
+      })
+      throw new Error(`${this.name} gagal menuju url cart`)
+    }
+  }
+
+  async checkOut(urlPayment: string) {
+    console.time(`${this.name} lama CO`)
+
+    console.time(`${this.name} klik tombol lanjutkan`)
+    try {
+      const buttonLanjutkan = await this.page?.waitForSelector(
+        '[data-testid="cart-btn-summary-cta"]'
+      )
+      await buttonLanjutkan?.click()
       await this.page?.waitForNavigation()
+    } catch (error) {
+      console.warn(`${this.name} gagal menuju form expedition`)
+    }
+    console.timeEnd(`${this.name} klik tombol lanjutkan`)
+
+    console.time(`${this.name} navigasi ke url payment`)
+    try {
+      await this.page?.goto(urlPayment)
+    } catch (error) {
+      throw new Error(`${this.name} gagal menuju url payment`)
+    }
+    console.timeEnd(`${this.name} navigasi ke url payment`)
+
+    console.time(`${this.name} berhasil checkout`)
+    try {
       const buttonVA = await this.page?.waitForSelector(
         'div ::-p-text(Virtual Account)'
       )
@@ -185,16 +240,19 @@ export default class Processor {
         'div ::-p-text(order sekarang)'
       )
       process.env['ENV'] === 'prod' && (await buttonOrder?.click())
-      console.timeEnd(`${this.name} berhasil checkout`)
-      console.timeEnd(`${this.name} lama CO`)
+    } catch (error) {
+      throw new Error(`${this.name} gagal checkout`)
+    }
+    console.timeEnd(`${this.name} berhasil checkout`)
+
+    console.timeEnd(`${this.name} lama CO`)
+    try {
       await new Promise((resolve) => setTimeout(resolve, 5000))
       await this.page?.screenshot({
         path: `./ss/${this.dirName}/7-final.jpg`,
         optimizeForSpeed: true,
       })
-    } catch (error) {
-      throw new Error(`${this.name} gagal checkout`)
-    }
+    } catch (error) {}
   }
 
   async clearCart(urlCart: string) {

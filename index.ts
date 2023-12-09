@@ -2,8 +2,15 @@ import 'dotenv/config'
 import Processor from './processor'
 import { CronJob } from 'cron'
 
-const { BROWSER_TYPE, URL, PASSWORD, TIME_PAYMENT, URL_CART, CART_STATUS } =
-  process.env
+const {
+  BROWSER_TYPE,
+  URL,
+  URL_CART,
+  URL_PAYMENT,
+  PASSWORD,
+  TIME_PAYMENT,
+  CART_STATUS,
+} = process.env
 const emails = (process.env['EMAILS'] ?? '').split(' ')
 const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
 const isProd = process.env['ENV'] === 'prod'
@@ -19,10 +26,8 @@ function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const processor = new Processor(emails[index].split('@')[0])
     const jobPayment = CronJob.from({
-      cronTime: process.env['TIME_PAYMENT'] ?? '',
-      onTick: () => {
-        processor.checkOut()
-      },
+      cronTime: TIME_PAYMENT ?? '',
+      onTick: () => processor.checkOut(URL_PAYMENT ?? ''),
       timeZone: 'Asia/Jakarta',
     })
 
@@ -34,7 +39,10 @@ function main() {
         await processor.clearCart(URL_CART ?? '')
       } else {
         await processor.addProductToCart(urlProduct)
-        isProd ? jobPayment.start() : await processor.checkOut()
+        await processor.prepareCheckout(URL_CART ?? '')
+        isProd
+          ? jobPayment.start()
+          : await processor.checkOut(URL_PAYMENT ?? '')
       }
     } catch (error) {
       console.error(error)
