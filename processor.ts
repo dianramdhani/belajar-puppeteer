@@ -120,21 +120,26 @@ export default class Processor {
       })
       await buttonBuyNow?.click()
       console.info(`${this.name} tambah produk`)
+      await this.page?.waitForNavigation()
+      await this.page?.screenshot({
+        path: `./ss/${this.dirName}/4-cart.jpg`,
+        optimizeForSpeed: true,
+      })
     } catch (error) {
       throw new Error(`${this.name} gagal tambah produk`)
     }
   }
 
   async checkOut() {
+    console.time(`${this.name} lama CO`)
+    console.time(`${this.name} klik tombol lanjutkan`)
     try {
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/4-cart.jpg`,
-        optimizeForSpeed: true,
-      })
       const buttonLanjutkan = await this.page?.waitForSelector(
         '[data-testid="cart-btn-summary-cta"]'
       )
       await buttonLanjutkan?.click()
+      console.timeEnd(`${this.name} klik tombol lanjutkan`)
+      console.time(`${this.name} klik tombol pilih pembayaran`)
       await this.page?.waitForNavigation()
     } catch (error) {
       throw new Error(`${this.name} gagal menuju form expedition`)
@@ -160,6 +165,8 @@ export default class Processor {
         'button:not(.btn-disabled) ::-p-text(Pilih Pembayaran)'
       )
       await buttonPilihPembayaran?.click()
+      console.timeEnd(`${this.name} klik tombol pilih pembayaran`)
+      console.time(`${this.name} berhasil checkout`)
     } catch (error) {
       throw new Error(`${this.name} gagal menuju page payment`)
     }
@@ -178,7 +185,8 @@ export default class Processor {
         'div ::-p-text(order sekarang)'
       )
       process.env['ENV'] === 'prod' && (await buttonOrder?.click())
-      console.info(`${this.name} berhasil checkout`)
+      console.timeEnd(`${this.name} berhasil checkout`)
+      console.timeEnd(`${this.name} lama CO`)
       await new Promise((resolve) => setTimeout(resolve, 5000))
       await this.page?.screenshot({
         path: `./ss/${this.dirName}/7-final.jpg`,
