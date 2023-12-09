@@ -43,6 +43,7 @@ function main() {
         isProd
           ? jobPayment.start()
           : await processor.checkOut(URL_PAYMENT ?? '')
+        !isProd && await processor.clearCart(URL_CART ?? '')
       }
     } catch (error) {
       console.error(error)
