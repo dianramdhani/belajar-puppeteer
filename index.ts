@@ -11,7 +11,7 @@ const isProd = process.env['ENV'] === 'prod'
 const jobLogin = CronJob.from({
   cronTime: process.env['TIME_LOGIN'] ?? '',
   onTick: main,
-  timeZone: 'Asia/Jakarta'
+  timeZone: 'Asia/Jakarta',
 })
 isProd ? jobLogin.start() : main()
 
@@ -19,11 +19,11 @@ function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const processor = new Processor(emails[index].split('@')[0])
     const jobPayment = CronJob.from({
-      cronTime: process.env['TIME_LOGIN'] ?? '',
+      cronTime: process.env['TIME_PAYMENT'] ?? '',
       onTick: () => {
         processor.checkOut()
       },
-      timeZone: 'Asia/Jakarta'
+      timeZone: 'Asia/Jakarta',
     })
 
     try {
