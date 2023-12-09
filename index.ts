@@ -8,14 +8,22 @@ const emails = (process.env['EMAILS'] ?? '').split(' ')
 const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
 const isProd = process.env['ENV'] === 'prod'
 
-const jobLogin = new CronJob(process.env['TIME_LOGIN'] ?? '', main)
+const jobLogin = CronJob.from({
+  cronTime: process.env['TIME_LOGIN'] ?? '',
+  onTick: main,
+  timeZone: 'Asia/Jakarta'
+})
 isProd ? jobLogin.start() : main()
 
 function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const processor = new Processor(emails[index].split('@')[0])
-    const jobPayment = new CronJob(TIME_PAYMENT ?? '', () => {
-      processor.checkOut()
+    const jobPayment = CronJob.from({
+      cronTime: process.env['TIME_LOGIN'] ?? '',
+      onTick: () => {
+        processor.checkOut()
+      },
+      timeZone: 'Asia/Jakarta'
     })
 
     try {

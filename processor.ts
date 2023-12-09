@@ -192,6 +192,7 @@ export default class Processor {
   async clearCart(urlCart: string) {
     try {
       await this.page?.goto(urlCart)
+      await new Promise((resolve) => setTimeout(resolve, 5000))
       await this.page?.screenshot({
         path: `./ss/${this.dirName}/3-cart.jpg`,
         optimizeForSpeed: true,
