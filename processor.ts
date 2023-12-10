@@ -7,7 +7,7 @@ export default class Processor {
   private dirName?: string
   private headers: Record<string, string> = {}
 
-  constructor(private name: string) {
+  constructor(private name: string, private isProd: boolean) {
     this.dirName = `${new Date().getTime()}-${this.name}`
     mkdir(
       `./ss/${this.dirName}`,
@@ -157,14 +157,15 @@ export default class Processor {
     } catch (error) {}
   }
 
-  async checkOut(urlQuery: string) {
+  async checkOut(urlQuery: string, limitPrice: number) {
     console.time(`${this.name} waktu CO`)
     try {
       await this.page?.evaluate(
-        async (urlQuery: string, headers: Record<string, string>) => {
-          try {
-            while (true) {
-              const processCheckout = await fetch(urlQuery, {
+        async (isProd, limitPrice, urlQuery, headers) => {
+          const process = async (addressID: number) => {
+            const responses: Response[] = []
+            responses.push(
+              await fetch(urlQuery, {
                 method: 'POST',
                 body: JSON.stringify([
                   {
@@ -176,7 +177,9 @@ export default class Processor {
                 ]),
                 headers,
               })
-              const addPreBook = await fetch(urlQuery, {
+            )
+            responses.push(
+              await fetch(urlQuery, {
                 method: 'POST',
                 body: JSON.stringify([
                   {
@@ -184,7 +187,7 @@ export default class Processor {
                     variables: {
                       params: {
                         isRewardPoint: false,
-                        addressID: 595706,
+                        addressID,
                         shippingID: 4,
                         shippingName: 'J&T',
                         shippingDuration: 'Estimasi pengiriman 2-3 Hari',
@@ -196,44 +199,82 @@ export default class Processor {
                 ]),
                 headers,
               })
-              const addOrder = await fetch(urlQuery, {
-                method: 'POST',
-                body: JSON.stringify([
-                  {
-                    operationName: 'addOrder',
-                    variables: {
-                      params: {
-                        paymentID: 57,
-                        paymentCode: 'VABCA',
-                        paymentName: 'BCA Virtual Account',
-                        paymentParentCode: 'VirtualAccount',
+            )
+            isProd &&
+              responses.push(
+                await fetch(urlQuery, {
+                  method: 'POST',
+                  body: JSON.stringify([
+                    {
+                      operationName: 'addOrder',
+                      variables: {
+                        params: {
+                          paymentID: 57,
+                          paymentCode: 'VABCA',
+                          paymentName: 'BCA Virtual Account',
+                          paymentParentCode: 'VirtualAccount',
+                        },
                       },
+                      query:
+                        'mutation addOrder($params: AddOrderRequest!) {\n  addOrder(params: $params) {\n    meta {\n      error\n      code\n      message\n    }\n    result {\n      payment {\n        status\n        orderId\n        redirectUrl\n      }\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        transaction_code\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n        total_price\n        gender\n        db\n        user_id\n        fb_login_id\n        ip_override\n        user_data {\n          email_address\n          phone_number\n          client_ip_address\n          address {\n            first_name\n            last_name\n            city\n            region\n            postal_code\n            country\n          }\n        }\n      }\n    }\n  }\n}\n',
                     },
+                  ]),
+                  headers,
+                })
+              )
+
+            return Promise.all(responses.map((response) => response.json()))
+          }
+
+          try {
+            const addressID = await fetch(urlQuery, {
+              method: 'POST',
+              body: JSON.stringify([
+                {
+                  operationName: 'getAddressList',
+                  variables: {},
+                  query:
+                    'query getAddressList($size: Int, $page: Int) {\n  getAddressList(size: $size, page: $page) {\n    meta {\n      page\n      size\n      sort\n      sortType\n      keyword\n      totalData\n      totalPage\n      message\n      error\n      code\n    }\n    result {\n      isSelected\n      addressID\n      addressName\n      addressPhone\n      addressLabel\n      addressZipCode\n      addressDetail\n      latitude\n      longitude\n      provinceID\n      provinceName\n      districtName\n      districtID\n      subdistrictName\n      subdistrictID\n    }\n  }\n}\n',
+                },
+              ]),
+              headers,
+            }).then(async (response) => {
+              const addressList: any = await response.json()
+              return addressList[0].data.getAddressList.result[0]
+                .addressID as number
+            })
+
+            while (true) {
+              try {
+                const productPrice = await fetch(urlQuery, {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    operationName: 'getCartListV2',
+                    variables: {},
                     query:
-                      'mutation addOrder($params: AddOrderRequest!) {\n  addOrder(params: $params) {\n    meta {\n      error\n      code\n      message\n    }\n    result {\n      payment {\n        status\n        orderId\n        redirectUrl\n      }\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        transaction_code\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n        total_price\n        gender\n        db\n        user_id\n        fb_login_id\n        ip_override\n        user_data {\n          email_address\n          phone_number\n          client_ip_address\n          address {\n            first_name\n            last_name\n            city\n            region\n            postal_code\n            country\n          }\n        }\n      }\n    }\n  }\n}\n',
-                  },
-                ]),
-                headers,
-              })
-
-              const responses: any[] = await Promise.all([
-                processCheckout.json(),
-                addPreBook.json(),
-                addOrder.json(),
-              ])
-
-              console.log(responses)
-
-              if (!!responses[2].data.addOrder.meta.error) {
-                await new Promise((resolve) => setTimeout(resolve, 3000))
-              } else {
-                break
+                      'query getCartListV2 {\n  getCartListV2 {\n    meta {\n      message\n      error\n      code\n    }\n    result {\n      totalPoint\n      totalAmount\n      totalData\n      listCart {\n        cartID\n        brandID\n        brandName\n        brandCode\n        productID\n        productSku\n        productName\n        productImage\n        productQuantity\n        productPrice\n        productSlicePrice\n        productTotalPrice\n        productSlug\n        productUrlTracking\n        productDiscount\n        productStock\n        productIsWishlist\n        deliveryEstimate\n        productStatus {\n          isOos\n          isComingSoon\n          isReady\n          isPreorder\n          isLatest\n        }\n        productLabel {\n          isFreeShipping\n          isFreeInsurance\n          isFlashSale\n          isBundlingStrap\n          isNewArrival\n          isJdm\n          isBestSeller\n          event {\n            status\n            badge\n            title\n            id\n            type\n          }\n        }\n        productRewardPoint {\n          label\n          value\n        }\n        productBundling {\n          cartID\n          brandID\n          brandName\n          brandCode\n          productID\n          productSku\n          productName\n          productImage\n          productQuantity\n          productPrice\n          productSlicePrice\n          productTotalPrice\n          productSlug\n          productDiscount\n          productStock\n          productIsWishlist\n          productStatus {\n            isOos\n            isComingSoon\n            isReady\n            isPreorder\n            isLatest\n          }\n          productLabel {\n            isFreeShipping\n            isFreeInsurance\n            isFlashSale\n            isBundlingStrap\n            isNewArrival\n            isJdm\n            isBestSeller\n            event {\n              status\n              badge\n              title\n              id\n              type\n            }\n          }\n          productRewardPoint {\n            label\n            value\n          }\n          productMaxBuy\n          productInfoStock\n          productWeight\n          productInfoWeight\n          productColor\n          productSeries\n          productCategory\n          cartMessage\n          analytic {\n            brandID\n            brandName\n            categoryID\n            categoryName\n            function\n            lugWidth\n            movement\n            productBrand\n            productColour\n            productID\n            productImage\n            productLink\n            productName\n            productPrice\n            productSku\n            strapMaterial\n            subBrandID\n            subBrandName\n            productQty\n            subtotal\n            affiliation\n            currency\n            value\n            discount\n            items {\n              index\n              item_id\n              item_name\n              item_brand\n              item_category\n              item_category2\n              item_category3\n              item_category4\n              item_category5\n              item_variant\n              item_list_id\n              item_list_name\n              coupon\n              price\n              quantity\n              discount\n              currency\n              affiliation\n              location_id\n            }\n          }\n        }\n        productMaxBuy\n        productInfoStock\n        productWeight\n        productInfoWeight\n        productColor\n        productSeries\n        productCategory\n        productDelivery\n        isChecked\n        cartMessage\n        isBackToNormal\n        isFlashsaleAndEventSale\n        analytic {\n          brandID\n          brandName\n          categoryID\n          categoryName\n          function\n          lugWidth\n          movement\n          productBrand\n          productColour\n          productID\n          productImage\n          productLink\n          productName\n          productPrice\n          productSku\n          strapMaterial\n          subBrandID\n          subBrandName\n          productQty\n          subtotal\n          affiliation\n          currency\n          value\n          discount\n          items {\n            index\n            item_id\n            item_name\n            item_brand\n            item_category\n            item_category2\n            item_category3\n            item_category4\n            item_category5\n            item_variant\n            item_list_id\n            item_list_name\n            coupon\n            price\n            quantity\n            discount\n            currency\n            affiliation\n            location_id\n          }\n        }\n      }\n      listCartOos {\n        cartID\n        brandID\n        brandName\n        brandCode\n        productID\n        productSku\n        productName\n        productImage\n        productQuantity\n        productPrice\n        productSlicePrice\n        productTotalPrice\n        productSlug\n        productUrlTracking\n        productDiscount\n        productStock\n        productIsWishlist\n        deliveryEstimate\n        productStatus {\n          isOos\n          isComingSoon\n          isReady\n          isPreorder\n          isLatest\n        }\n        productLabel {\n          isFreeShipping\n          isFreeInsurance\n          isFlashSale\n          isBundlingStrap\n          isNewArrival\n          isJdm\n          isBestSeller\n          event {\n            status\n            badge\n            title\n            id\n            type\n          }\n        }\n        productRewardPoint {\n          label\n          value\n        }\n        productBundling {\n          cartID\n          brandID\n          brandName\n          brandCode\n          productID\n          productSku\n          productName\n          productImage\n          productQuantity\n          productPrice\n          productSlicePrice\n          productTotalPrice\n          productSlug\n          productDiscount\n          productStock\n          productIsWishlist\n          productStatus {\n            isOos\n            isComingSoon\n            isReady\n            isPreorder\n            isLatest\n          }\n          productLabel {\n            isFreeShipping\n            isFreeInsurance\n            isFlashSale\n            isBundlingStrap\n            isNewArrival\n            isJdm\n            isBestSeller\n            event {\n              status\n              badge\n              title\n              id\n              type\n            }\n          }\n          productRewardPoint {\n            label\n            value\n          }\n          productMaxBuy\n          productInfoStock\n          productWeight\n          productInfoWeight\n          productColor\n          productSeries\n          productCategory\n          cartMessage\n          analytic {\n            brandID\n            brandName\n            categoryID\n            categoryName\n            function\n            lugWidth\n            movement\n            productBrand\n            productColour\n            productID\n            productImage\n            productLink\n            productName\n            productPrice\n            productSku\n            strapMaterial\n            subBrandID\n            subBrandName\n            productQty\n            subtotal\n            affiliation\n            currency\n            value\n            discount\n            items {\n              index\n              item_id\n              item_name\n              item_brand\n              item_category\n              item_category2\n              item_category3\n              item_category4\n              item_category5\n              item_variant\n              item_list_id\n              item_list_name\n              coupon\n              price\n              quantity\n              discount\n              currency\n              affiliation\n              location_id\n            }\n          }\n        }\n        productMaxBuy\n        productInfoStock\n        productWeight\n        productInfoWeight\n        productColor\n        productSeries\n        productCategory\n        productDelivery\n        isChecked\n        cartMessage\n        isBackToNormal\n        isFlashsaleAndEventSale\n        analytic {\n          brandID\n          brandName\n          categoryID\n          categoryName\n          function\n          lugWidth\n          movement\n          productBrand\n          productColour\n          productID\n          productImage\n          productLink\n          productName\n          productPrice\n          productSku\n          strapMaterial\n          subBrandID\n          subBrandName\n          productQty\n          subtotal\n          affiliation\n          currency\n          value\n          discount\n          items {\n            index\n            item_id\n            item_name\n            item_brand\n            item_category\n            item_category2\n            item_category3\n            item_category4\n            item_category5\n            item_variant\n            item_list_id\n            item_list_name\n            coupon\n            price\n            quantity\n            discount\n            currency\n            affiliation\n            location_id\n          }\n        }\n      }\n      isOverload\n      info {\n        id\n        message\n      }\n      analytic {\n        affiliation\n        currency\n        value\n        discount\n        items {\n          index\n          item_id\n          item_name\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_variant\n          item_list_id\n          item_list_name\n          coupon\n          price\n          quantity\n          discount\n          currency\n          affiliation\n          location_id\n        }\n        quantity\n        description\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        fb_content_id\n        fb_content_type\n        fb_currency\n        fb_num_items\n        fb_price\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        content_ids\n        product_name\n        product_id\n        product_price\n        products\n        tiktok_analytic {\n          content_type\n          quantity\n          currency\n          value\n          content {\n            content_type\n            currency\n            value\n            contents {\n              content_id\n              content_name\n              quantity\n              price\n            }\n          }\n        }\n      }\n    }\n  }\n}\n',
+                  }),
+                  headers,
+                }).then(async (response) => {
+                  const cartList: any = await response.json()
+                  return cartList.data.getCartListV2.result.listCart[0]
+                    .productPrice as number
+                })
+                console.log(productPrice)
+                if (productPrice < limitPrice) break
+              } catch (error) {
+                console.error('error di polling', error)
+                continue
               }
             }
+
+            console.log(await process(addressID))
           } catch (error) {
             console.error(error)
           }
         },
+        this.isProd,
+        limitPrice,
         urlQuery,
         this.headers
       )
