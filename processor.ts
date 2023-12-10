@@ -5,6 +5,7 @@ import type { Page } from 'puppeteer'
 export default class Processor {
   private page?: Page
   private dirName?: string
+  private headers: Record<string, string> = {}
 
   constructor(private name: string) {
     this.dirName = `${new Date().getTime()}-${this.name}`
@@ -32,6 +33,16 @@ export default class Processor {
           }),
     })
     this.page = (await browser.pages())[0]
+    await this.page.setRequestInterception(true)
+    this.page.on('request', (request) => request.continue())
+    this.page.on('response', async (response) => {
+      if (response.url().includes('/query')) {
+        try {
+          const responseData = await response.json()
+          this.headers = response.request().headers()
+        } catch (error) {}
+      }
+    })
   }
 
   async login(url: string, email: string, password: string) {
@@ -146,113 +157,83 @@ export default class Processor {
     } catch (error) {}
   }
 
-  async prepareCheckout(urlCart: string) {
+  async checkOut(urlQuery: string) {
+    console.time(`${this.name} waktu CO`)
     try {
-      const buttonLanjutkan = await this.page?.waitForSelector(
-        '[data-testid="cart-btn-summary-cta"]'
+      await this.page?.evaluate(
+        async (urlQuery: string, headers: Record<string, string>) => {
+          try {
+            const processCheckout = await fetch(urlQuery, {
+              method: 'POST',
+              body: JSON.stringify([
+                {
+                  operationName: 'processCheckout',
+                  variables: {},
+                  query:
+                    'query processCheckout {\n  processCheckout {\n    meta {\n      message\n      error\n      code\n    }\n    result\n  }\n}\n',
+                },
+              ]),
+              headers,
+            })
+            const addPreBook = await fetch(urlQuery, {
+              method: 'POST',
+              body: JSON.stringify([
+                {
+                  operationName: 'addPreBook',
+                  variables: {
+                    params: {
+                      isRewardPoint: false,
+                      addressID: 595706,
+                      shippingID: 4,
+                      shippingName: 'J&T',
+                      shippingDuration: 'Estimasi pengiriman 2-3 Hari',
+                    },
+                  },
+                  query:
+                    'mutation addPreBook($params: PreBookRequest!) {\n  addPreBook(params: $params) {\n    meta {\n      message\n      error\n      code\n    }\n    result {\n      status\n      orderID\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          coupon\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n      }\n    }\n  }\n}\n',
+                },
+              ]),
+              headers,
+            })
+            const addOrder = await fetch(urlQuery, {
+              method: 'POST',
+              body: JSON.stringify([
+                {
+                  operationName: 'addOrder',
+                  variables: {
+                    params: {
+                      paymentID: 57,
+                      paymentCode: 'VABCA',
+                      paymentName: 'BCA Virtual Account',
+                      paymentParentCode: 'VirtualAccount',
+                    },
+                  },
+                  query:
+                    'mutation addOrder($params: AddOrderRequest!) {\n  addOrder(params: $params) {\n    meta {\n      error\n      code\n      message\n    }\n    result {\n      payment {\n        status\n        orderId\n        redirectUrl\n      }\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        transaction_code\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n        total_price\n        gender\n        db\n        user_id\n        fb_login_id\n        ip_override\n        user_data {\n          email_address\n          phone_number\n          client_ip_address\n          address {\n            first_name\n            last_name\n            city\n            region\n            postal_code\n            country\n          }\n        }\n      }\n    }\n  }\n}\n',
+                },
+              ]),
+              headers,
+            })
+
+            console.log(
+              await Promise.all([
+                processCheckout.json(),
+                addPreBook.json(),
+                addOrder.json(),
+              ])
+            )
+          } catch (error) {
+            console.error(error)
+          }
+        },
+        urlQuery,
+        this.headers
       )
-      await buttonLanjutkan?.click()
-      await this.page?.waitForNavigation()
     } catch (error) {
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/5-gagal-menuju-form-expedition.jpg`,
-        optimizeForSpeed: true,
-      })
-      throw new Error(`${this.name} gagal menuju form expedition`)
+      console.warn('gagal CO')
+      throw error
     }
-
-    try {
-      const buttonExpedition = await this.page?.waitForSelector(
-        '[aria-label="Choose shipping method"]'
-      )
-      await buttonExpedition?.click()
-      await this.page?.waitForSelector(
-        '[data-testid="shipping-method-dropdown"] p ::-p-text(JNE)'
-      )
-      const selectExpedition = await this.page?.waitForSelector(
-        '[data-testid="shipping-method-dropdown"] li:nth-child(3)'
-      )
-      await selectExpedition?.click()
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/5-select-expedition.jpg`,
-        optimizeForSpeed: true,
-      })
-      const buttonPilihPembayaran = await this.page?.waitForSelector(
-        'button:not(.btn-disabled) ::-p-text(Pilih Pembayaran)'
-      )
-      await buttonPilihPembayaran?.click()
-      await this.page?.waitForNavigation()
-    } catch (error) {
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/5-gagal-menuju-page-payment.jpg`,
-        optimizeForSpeed: true,
-      })
-      console.warn(`${this.name} gagal menuju page payment`)
-    }
-
-    try {
-      this.page?.on('dialog', (dialog) => dialog.accept())
-      await this.page?.goto(urlCart)
-      console.info(`${this.name} berhasil prepare checkout`)
-    } catch (error) {
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/5-gagal-menuju-url-cart.jpg`,
-        optimizeForSpeed: true,
-      })
-      throw new Error(`${this.name} gagal menuju url cart`)
-    }
-  }
-
-  async checkOut(urlPayment: string) {
-    console.time(`${this.name} lama CO`)
-
-    console.time(`${this.name} klik tombol lanjutkan`)
-    try {
-      const buttonLanjutkan = await this.page?.waitForSelector(
-        '[data-testid="cart-btn-summary-cta"]'
-      )
-      await buttonLanjutkan?.click()
-      await this.page?.waitForNavigation()
-    } catch (error) {
-      console.warn(`${this.name} gagal menuju form expedition`)
-    }
-    console.timeEnd(`${this.name} klik tombol lanjutkan`)
-
-    console.time(`${this.name} navigasi ke url payment`)
-    try {
-      await this.page?.goto(urlPayment)
-    } catch (error) {
-      throw new Error(`${this.name} gagal menuju url payment`)
-    }
-    console.timeEnd(`${this.name} navigasi ke url payment`)
-
-    console.time(`${this.name} berhasil checkout`)
-    try {
-      const buttonVA = await this.page?.waitForSelector(
-        'div ::-p-text(Virtual Account)'
-      )
-      await buttonVA?.click()
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/6-payment-method.jpg`,
-        optimizeForSpeed: true,
-      })
-      const buttonOrder = await this.page?.waitForSelector(
-        'div ::-p-text(order sekarang)'
-      )
-      process.env['ENV'] === 'prod' && (await buttonOrder?.click())
-    } catch (error) {
-      throw new Error(`${this.name} gagal checkout`)
-    }
-    console.timeEnd(`${this.name} berhasil checkout`)
-
-    console.timeEnd(`${this.name} lama CO`)
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 5000))
-      await this.page?.screenshot({
-        path: `./ss/${this.dirName}/7-final.jpg`,
-        optimizeForSpeed: true,
-      })
-    } catch (error) {}
+    console.timeEnd(`${this.name} waktu CO`)
   }
 
   async clearCart(urlCart: string) {

@@ -6,7 +6,7 @@ const {
   BROWSER_TYPE,
   URL,
   URL_CART,
-  URL_PAYMENT,
+  URL_QUERY,
   PASSWORD,
   TIME_PAYMENT,
   CART_STATUS,
@@ -27,7 +27,7 @@ function main() {
     const processor = new Processor(emails[index].split('@')[0])
     const jobPayment = CronJob.from({
       cronTime: TIME_PAYMENT ?? '',
-      onTick: () => processor.checkOut(URL_PAYMENT ?? ''),
+      onTick: () => processor.checkOut(URL_QUERY ?? ''),
       timeZone: 'Asia/Jakarta',
     })
 
@@ -39,11 +39,13 @@ function main() {
         await processor.clearCart(URL_CART ?? '')
       } else {
         await processor.addProductToCart(urlProduct)
-        await processor.prepareCheckout(URL_CART ?? '')
         isProd
           ? jobPayment.start()
-          : await processor.checkOut(URL_PAYMENT ?? '')
-        !isProd && await processor.clearCart(URL_CART ?? '')
+          : (async () => {
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+              await processor.checkOut(URL_QUERY ?? '')
+            })()
+        !isProd && (await processor.clearCart(URL_CART ?? ''))
       }
     } catch (error) {
       console.error(error)
