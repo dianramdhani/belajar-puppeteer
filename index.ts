@@ -3,39 +3,52 @@ import Processor from './processor'
 import { CronJob } from 'cron'
 
 const {
+  ENV,
   BROWSER_TYPE,
   URL,
   URL_CART,
   URL_QUERY,
+  URL_PRODUCTS,
+  EMAILS,
   PASSWORD,
+  TIME_LOGIN,
   TIME_PAYMENT,
   CART_STATUS,
-  LIMIT_PRICE,
 } = process.env
-const emails = (process.env['EMAILS'] ?? '').split(' ')
-const urlProducts = (process.env['URL_PRODUCTS'] ?? '').split(' ')
-const isProd = process.env['ENV'] === 'prod'
+const emails = (EMAILS ?? '').split(' ')
+const urlProducts = (URL_PRODUCTS ?? '').split(' ')
+const isProd = ENV === 'prod'
 
 const jobLogin = CronJob.from({
-  cronTime: process.env['TIME_LOGIN'] ?? '',
-  onTick: main,
+  cronTime: TIME_LOGIN ?? '',
+  onTick: () => main(),
   timeZone: 'Asia/Jakarta',
 })
-isProd ? jobLogin.start() : main()
+if (isProd) {
+  console.info('ini prod bersiaplah')
+  jobLogin.start()
+} else {
+  console.log('tenang masih dev', { CART_STATUS })
+  main()
+}
 
 function main() {
   urlProducts.forEach(async (urlProduct, index) => {
     const processor = new Processor(emails[index].split('@')[0], isProd)
     const jobPayment = CronJob.from({
       cronTime: TIME_PAYMENT ?? '',
-      onTick: () =>
-        processor.checkOut(URL_QUERY ?? '', LIMIT_PRICE ? +LIMIT_PRICE : 50000),
+      onTick: () => processor.checkOut(),
       timeZone: 'Asia/Jakarta',
     })
 
     try {
       await processor.initialize(BROWSER_TYPE ?? '')
-      await processor.login(URL ?? '', emails[index], PASSWORD ?? '')
+      await processor.login(
+        URL ?? '',
+        URL_QUERY ?? '',
+        emails[index],
+        PASSWORD ?? ''
+      )
 
       if (!isProd && CART_STATUS === 'clear') {
         await processor.clearCart(URL_CART ?? '')
@@ -45,10 +58,7 @@ function main() {
           ? jobPayment.start()
           : await (async () => {
               await new Promise((resolve) => setTimeout(resolve, 5000))
-              await processor.checkOut(
-                URL_QUERY ?? '',
-                LIMIT_PRICE ? +LIMIT_PRICE : 50000
-              )
+              await processor.checkOut()
             })()
         !isProd && (await processor.clearCart(URL_CART ?? ''))
       }

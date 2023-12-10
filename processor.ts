@@ -1,11 +1,13 @@
 import puppeteer from 'puppeteer'
-import { mkdir } from 'fs'
+import { mkdir, writeFile } from 'fs'
 import type { Page } from 'puppeteer'
 
 export default class Processor {
   private page?: Page
   private dirName?: string
   private headers: Record<string, string> = {}
+  private urlQuery: string = ''
+  private addressID: number = -1
 
   constructor(private name: string, private isProd: boolean) {
     this.dirName = `${new Date().getTime()}-${this.name}`
@@ -34,18 +36,34 @@ export default class Processor {
     })
     this.page = (await browser.pages())[0]
     await this.page.setRequestInterception(true)
-    this.page.on('request', (request) => request.continue())
-    this.page.on('response', async (response) => {
-      if (response.url().includes('/query')) {
-        try {
-          const responseData = await response.json()
-          this.headers = response.request().headers()
-        } catch (error) {}
-      }
-    })
+    this.page
+      .on('request', (request) => request.continue())
+      .on('response', async (response) => {
+        if (response.url().includes('/query')) {
+          try {
+            const responseData = await response.json()
+            this.headers = response.request().headers()
+          } catch (error) {}
+        }
+      })
+      .on('console', (message) => {
+        const text = message.text()
+        if (!text.includes('#')) return
+        if (text.includes('#dataCO')) {
+          const dataCO = text.split(' ')[1]
+          writeFile(`./ss/${this.dirName}/dataCO.json`, dataCO, (error) => {
+            if (error) console.warn('gagal simpan dataCO')
+          })
+          return
+        }
+        if (text.includes('#addressID')) {
+          this.addressID = +text.split(' ')[1] ?? -1
+        }
+        console.info(`console ${this.name}: ${text}`)
+      })
   }
 
-  async login(url: string, email: string, password: string) {
+  async login(url: string, urlQuery: string, email: string, password: string) {
     try {
       await this.page?.goto(url)
     } catch (error) {
@@ -107,14 +125,39 @@ export default class Processor {
     try {
       await this.deleteBanner()
     } catch (error) {}
-  }
 
-  async deleteBanner() {
     try {
-      await this.page?.waitForSelector('[id^="moe-onsite-campaign-"]')
-      const banner = await this.page?.$('[id^="moe-onsite-campaign-"]')
-      await banner?.evaluateHandle((el) => el.remove())
-      console.info(`${this.name} delete welcome banner`)
+      this.urlQuery = urlQuery
+      await this.page?.evaluate(
+        async (urlQuery, headers) => {
+          try {
+            const addressID = await fetch(urlQuery, {
+              method: 'POST',
+              body: JSON.stringify([
+                {
+                  operationName: 'getAddressList',
+                  variables: {},
+                  query:
+                    'query getAddressList($size: Int, $page: Int) {\n  getAddressList(size: $size, page: $page) {\n    meta {\n      page\n      size\n      sort\n      sortType\n      keyword\n      totalData\n      totalPage\n      message\n      error\n      code\n    }\n    result {\n      isSelected\n      addressID\n      addressName\n      addressPhone\n      addressLabel\n      addressZipCode\n      addressDetail\n      latitude\n      longitude\n      provinceID\n      provinceName\n      districtName\n      districtID\n      subdistrictName\n      subdistrictID\n    }\n  }\n}\n',
+                },
+              ]),
+              headers,
+            }).then(async (response) => {
+              const addressList: any = await response.json()
+              return addressList[0].data.getAddressList.result[0]
+                .addressID as number
+            })
+
+            if (addressID) {
+              console.log(`#addressID ${addressID}`)
+            } else {
+              console.log('#error gak ada address id')
+            }
+          } catch (error) {}
+        },
+        urlQuery,
+        this.headers
+      )
     } catch (error) {}
   }
 
@@ -157,13 +200,13 @@ export default class Processor {
     } catch (error) {}
   }
 
-  async checkOut(urlQuery: string, limitPrice: number) {
+  async checkOut() {
     console.time(`${this.name} waktu CO`)
     try {
       await this.page?.evaluate(
-        async (isProd, limitPrice, urlQuery, headers) => {
-          const process = async (addressID: number) => {
-            const responses: Response[] = []
+        async (urlQuery, headers, addressID, isProd) => {
+          const responses: Response[] = []
+          try {
             responses.push(
               await fetch(urlQuery, {
                 method: 'POST',
@@ -200,7 +243,7 @@ export default class Processor {
                 headers,
               })
             )
-            isProd &&
+            if (isProd) {
               responses.push(
                 await fetch(urlQuery, {
                   method: 'POST',
@@ -222,61 +265,22 @@ export default class Processor {
                   headers,
                 })
               )
-
-            return Promise.all(responses.map((response) => response.json()))
-          }
-
-          try {
-            const addressID = await fetch(urlQuery, {
-              method: 'POST',
-              body: JSON.stringify([
-                {
-                  operationName: 'getAddressList',
-                  variables: {},
-                  query:
-                    'query getAddressList($size: Int, $page: Int) {\n  getAddressList(size: $size, page: $page) {\n    meta {\n      page\n      size\n      sort\n      sortType\n      keyword\n      totalData\n      totalPage\n      message\n      error\n      code\n    }\n    result {\n      isSelected\n      addressID\n      addressName\n      addressPhone\n      addressLabel\n      addressZipCode\n      addressDetail\n      latitude\n      longitude\n      provinceID\n      provinceName\n      districtName\n      districtID\n      subdistrictName\n      subdistrictID\n    }\n  }\n}\n',
-                },
-              ]),
-              headers,
-            }).then(async (response) => {
-              const addressList: any = await response.json()
-              return addressList[0].data.getAddressList.result[0]
-                .addressID as number
-            })
-
-            while (true) {
-              try {
-                const productPrice = await fetch(urlQuery, {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    operationName: 'getCartListV2',
-                    variables: {},
-                    query:
-                      'query getCartListV2 {\n  getCartListV2 {\n    meta {\n      message\n      error\n      code\n    }\n    result {\n      totalPoint\n      totalAmount\n      totalData\n      listCart {\n        cartID\n        brandID\n        brandName\n        brandCode\n        productID\n        productSku\n        productName\n        productImage\n        productQuantity\n        productPrice\n        productSlicePrice\n        productTotalPrice\n        productSlug\n        productUrlTracking\n        productDiscount\n        productStock\n        productIsWishlist\n        deliveryEstimate\n        productStatus {\n          isOos\n          isComingSoon\n          isReady\n          isPreorder\n          isLatest\n        }\n        productLabel {\n          isFreeShipping\n          isFreeInsurance\n          isFlashSale\n          isBundlingStrap\n          isNewArrival\n          isJdm\n          isBestSeller\n          event {\n            status\n            badge\n            title\n            id\n            type\n          }\n        }\n        productRewardPoint {\n          label\n          value\n        }\n        productBundling {\n          cartID\n          brandID\n          brandName\n          brandCode\n          productID\n          productSku\n          productName\n          productImage\n          productQuantity\n          productPrice\n          productSlicePrice\n          productTotalPrice\n          productSlug\n          productDiscount\n          productStock\n          productIsWishlist\n          productStatus {\n            isOos\n            isComingSoon\n            isReady\n            isPreorder\n            isLatest\n          }\n          productLabel {\n            isFreeShipping\n            isFreeInsurance\n            isFlashSale\n            isBundlingStrap\n            isNewArrival\n            isJdm\n            isBestSeller\n            event {\n              status\n              badge\n              title\n              id\n              type\n            }\n          }\n          productRewardPoint {\n            label\n            value\n          }\n          productMaxBuy\n          productInfoStock\n          productWeight\n          productInfoWeight\n          productColor\n          productSeries\n          productCategory\n          cartMessage\n          analytic {\n            brandID\n            brandName\n            categoryID\n            categoryName\n            function\n            lugWidth\n            movement\n            productBrand\n            productColour\n            productID\n            productImage\n            productLink\n            productName\n            productPrice\n            productSku\n            strapMaterial\n            subBrandID\n            subBrandName\n            productQty\n            subtotal\n            affiliation\n            currency\n            value\n            discount\n            items {\n              index\n              item_id\n              item_name\n              item_brand\n              item_category\n              item_category2\n              item_category3\n              item_category4\n              item_category5\n              item_variant\n              item_list_id\n              item_list_name\n              coupon\n              price\n              quantity\n              discount\n              currency\n              affiliation\n              location_id\n            }\n          }\n        }\n        productMaxBuy\n        productInfoStock\n        productWeight\n        productInfoWeight\n        productColor\n        productSeries\n        productCategory\n        productDelivery\n        isChecked\n        cartMessage\n        isBackToNormal\n        isFlashsaleAndEventSale\n        analytic {\n          brandID\n          brandName\n          categoryID\n          categoryName\n          function\n          lugWidth\n          movement\n          productBrand\n          productColour\n          productID\n          productImage\n          productLink\n          productName\n          productPrice\n          productSku\n          strapMaterial\n          subBrandID\n          subBrandName\n          productQty\n          subtotal\n          affiliation\n          currency\n          value\n          discount\n          items {\n            index\n            item_id\n            item_name\n            item_brand\n            item_category\n            item_category2\n            item_category3\n            item_category4\n            item_category5\n            item_variant\n            item_list_id\n            item_list_name\n            coupon\n            price\n            quantity\n            discount\n            currency\n            affiliation\n            location_id\n          }\n        }\n      }\n      listCartOos {\n        cartID\n        brandID\n        brandName\n        brandCode\n        productID\n        productSku\n        productName\n        productImage\n        productQuantity\n        productPrice\n        productSlicePrice\n        productTotalPrice\n        productSlug\n        productUrlTracking\n        productDiscount\n        productStock\n        productIsWishlist\n        deliveryEstimate\n        productStatus {\n          isOos\n          isComingSoon\n          isReady\n          isPreorder\n          isLatest\n        }\n        productLabel {\n          isFreeShipping\n          isFreeInsurance\n          isFlashSale\n          isBundlingStrap\n          isNewArrival\n          isJdm\n          isBestSeller\n          event {\n            status\n            badge\n            title\n            id\n            type\n          }\n        }\n        productRewardPoint {\n          label\n          value\n        }\n        productBundling {\n          cartID\n          brandID\n          brandName\n          brandCode\n          productID\n          productSku\n          productName\n          productImage\n          productQuantity\n          productPrice\n          productSlicePrice\n          productTotalPrice\n          productSlug\n          productDiscount\n          productStock\n          productIsWishlist\n          productStatus {\n            isOos\n            isComingSoon\n            isReady\n            isPreorder\n            isLatest\n          }\n          productLabel {\n            isFreeShipping\n            isFreeInsurance\n            isFlashSale\n            isBundlingStrap\n            isNewArrival\n            isJdm\n            isBestSeller\n            event {\n              status\n              badge\n              title\n              id\n              type\n            }\n          }\n          productRewardPoint {\n            label\n            value\n          }\n          productMaxBuy\n          productInfoStock\n          productWeight\n          productInfoWeight\n          productColor\n          productSeries\n          productCategory\n          cartMessage\n          analytic {\n            brandID\n            brandName\n            categoryID\n            categoryName\n            function\n            lugWidth\n            movement\n            productBrand\n            productColour\n            productID\n            productImage\n            productLink\n            productName\n            productPrice\n            productSku\n            strapMaterial\n            subBrandID\n            subBrandName\n            productQty\n            subtotal\n            affiliation\n            currency\n            value\n            discount\n            items {\n              index\n              item_id\n              item_name\n              item_brand\n              item_category\n              item_category2\n              item_category3\n              item_category4\n              item_category5\n              item_variant\n              item_list_id\n              item_list_name\n              coupon\n              price\n              quantity\n              discount\n              currency\n              affiliation\n              location_id\n            }\n          }\n        }\n        productMaxBuy\n        productInfoStock\n        productWeight\n        productInfoWeight\n        productColor\n        productSeries\n        productCategory\n        productDelivery\n        isChecked\n        cartMessage\n        isBackToNormal\n        isFlashsaleAndEventSale\n        analytic {\n          brandID\n          brandName\n          categoryID\n          categoryName\n          function\n          lugWidth\n          movement\n          productBrand\n          productColour\n          productID\n          productImage\n          productLink\n          productName\n          productPrice\n          productSku\n          strapMaterial\n          subBrandID\n          subBrandName\n          productQty\n          subtotal\n          affiliation\n          currency\n          value\n          discount\n          items {\n            index\n            item_id\n            item_name\n            item_brand\n            item_category\n            item_category2\n            item_category3\n            item_category4\n            item_category5\n            item_variant\n            item_list_id\n            item_list_name\n            coupon\n            price\n            quantity\n            discount\n            currency\n            affiliation\n            location_id\n          }\n        }\n      }\n      isOverload\n      info {\n        id\n        message\n      }\n      analytic {\n        affiliation\n        currency\n        value\n        discount\n        items {\n          index\n          item_id\n          item_name\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_variant\n          item_list_id\n          item_list_name\n          coupon\n          price\n          quantity\n          discount\n          currency\n          affiliation\n          location_id\n        }\n        quantity\n        description\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        fb_content_id\n        fb_content_type\n        fb_currency\n        fb_num_items\n        fb_price\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        content_ids\n        product_name\n        product_id\n        product_price\n        products\n        tiktok_analytic {\n          content_type\n          quantity\n          currency\n          value\n          content {\n            content_type\n            currency\n            value\n            contents {\n              content_id\n              content_name\n              quantity\n              price\n            }\n          }\n        }\n      }\n    }\n  }\n}\n',
-                  }),
-                  headers,
-                }).then(async (response) => {
-                  const cartList: any = await response.json()
-                  return cartList.data.getCartListV2.result.listCart[0]
-                    .productPrice as number
-                })
-                console.log(productPrice)
-                if (productPrice < limitPrice) break
-              } catch (error) {
-                console.error('error di polling', error)
-                continue
-              }
             }
 
-            console.log(await process(addressID))
+            console.log(
+              '#dataCO',
+              JSON.stringify(
+                await Promise.all(responses.map((response) => response.json()))
+              )
+            )
           } catch (error) {
-            console.error(error)
+            console.log('#error gagal CO', error)
           }
         },
-        this.isProd,
-        limitPrice,
-        urlQuery,
-        this.headers
+        this.urlQuery,
+        this.headers,
+        this.addressID,
+        this.isProd
       )
     } catch (error) {
       console.warn('gagal CO')
@@ -313,5 +317,14 @@ export default class Processor {
     } catch (error) {
       console.warn(`${this.name} gagal clear cart`)
     }
+  }
+
+  private async deleteBanner() {
+    try {
+      await this.page?.waitForSelector('[id^="moe-onsite-campaign-"]')
+      const banner = await this.page?.$('[id^="moe-onsite-campaign-"]')
+      await banner?.evaluateHandle((el) => el.remove())
+      console.info(`${this.name} delete welcome banner`)
+    } catch (error) {}
   }
 }
