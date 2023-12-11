@@ -54,6 +54,7 @@ function main() {
         await processor.clearCart(URL_CART ?? '')
       } else {
         await processor.addProductToCart(urlProduct)
+        await processor.prepareCheckOut()
         isProd
           ? jobPayment.start()
           : await (async () => {
