@@ -8,6 +8,7 @@ const {
   URL,
   URL_CART,
   URL_QUERY,
+  URL_LIST_CO,
   URL_PRODUCTS,
   EMAILS,
   PASSWORD,
@@ -37,7 +38,7 @@ function main() {
     const processor = new Processor(emails[index].split('@')[0], isProd)
     const jobPayment = CronJob.from({
       cronTime: TIME_PAYMENT ?? '',
-      onTick: () => processor.checkOut(),
+      onTick: () => processor.checkOut(URL_LIST_CO ?? ''),
       timeZone: 'Asia/Jakarta',
     })
 
@@ -58,7 +59,7 @@ function main() {
           ? jobPayment.start()
           : await (async () => {
               await new Promise((resolve) => setTimeout(resolve, 5000))
-              await processor.checkOut()
+              await processor.checkOut(URL_LIST_CO ?? '')
             })()
         !isProd && (await processor.clearCart(URL_CART ?? ''))
       }

@@ -21,6 +21,7 @@ export default class Processor {
   async initialize(browserType: string) {
     const browser = await puppeteer.launch({
       args: ['--enable-gpu'],
+      dumpio: true,
       ...(browserType === 'headless'
         ? {
             headless: 'new',
@@ -48,15 +49,15 @@ export default class Processor {
       })
       .on('console', (message) => {
         const text = message.text()
-        if (!text.includes('#')) return
-        if (text.includes('#dataCO')) {
+        if (!text.includes('~')) return
+        if (text.includes('~dataCO')) {
           const dataCO = text.split(' ')[1]
           writeFile(`./ss/${this.dirName}/dataCO.json`, dataCO, (error) => {
             if (error) console.warn('gagal simpan dataCO')
           })
           return
         }
-        if (text.includes('#addressID')) {
+        if (text.includes('~addressID')) {
           this.addressID = +text.split(' ')[1] ?? -1
         }
         console.info(`console ${this.name}: ${text}`)
@@ -149,9 +150,9 @@ export default class Processor {
             })
 
             if (addressID) {
-              console.log(`#addressID ${addressID}`)
+              console.log(`~addressID ${addressID}`)
             } else {
-              console.log('#error gak ada address id')
+              console.log('~error gak ada address id')
             }
           } catch (error) {}
         },
@@ -192,6 +193,7 @@ export default class Processor {
 
     try {
       await this.page?.waitForNavigation()
+      await this.page?.waitForSelector('#cart-item-0')
       await this.page?.screenshot({
         path: `./ss/${this.dirName}/4-cart.jpg`,
         optimizeForSpeed: true,
@@ -199,7 +201,7 @@ export default class Processor {
     } catch (error) {}
   }
 
-  async checkOut() {
+  async checkOut(urlListCO: string) {
     console.time(`${this.name} waktu CO`)
     try {
       await this.page?.evaluate(
@@ -242,7 +244,6 @@ export default class Processor {
                 headers,
               })
             )
-
             if (isProd) {
               responses.push(
                 await fetch(urlQuery, {
@@ -267,13 +268,12 @@ export default class Processor {
               )
             }
 
-            console.log(
-              `#dataCO ${JSON.stringify(
-                await Promise.all(responses.map((response) => response.json()))
-              )}`
+            const jsonResponses = JSON.stringify(
+              await Promise.all(responses.map((response) => response.json()))
             )
+            console.log(`~dataCO ${jsonResponses}`)
           } catch (error) {
-            console.log('#error gagal CO', error)
+            console.log('~error gagal CO', error)
           }
         },
         this.urlQuery,
@@ -286,6 +286,17 @@ export default class Processor {
       throw error
     }
     console.timeEnd(`${this.name} waktu CO`)
+
+    if (this.isProd) {
+      try {
+        await this.page?.goto(urlListCO)
+        await this.page?.waitForSelector('#orders-item-0')
+        await this.page?.screenshot({
+          path: `./ss/${this.dirName}/4-final-co-product.jpg`,
+          optimizeForSpeed: true,
+        })
+      } catch (error) {}
+    }
   }
 
   async clearCart(urlCart: string) {
