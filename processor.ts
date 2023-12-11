@@ -56,17 +56,6 @@ export default class Processor {
           })
           return
         }
-        if (text.includes('#dataPrepareCO')) {
-          const dataPrepareCO = text.split(' ')[1]
-          writeFile(
-            `./ss/${this.dirName}/dataPrepareCO.json`,
-            dataPrepareCO,
-            (error) => {
-              if (error) console.warn('gagal simpan dataPrepareCO')
-            }
-          )
-          return
-        }
         if (text.includes('#addressID')) {
           this.addressID = +text.split(' ')[1] ?? -1
         }
@@ -210,10 +199,11 @@ export default class Processor {
     } catch (error) {}
   }
 
-  async prepareCheckOut() {
+  async checkOut() {
+    console.time(`${this.name} waktu CO`)
     try {
       await this.page?.evaluate(
-        async (urlQuery, headers, addressID) => {
+        async (urlQuery, headers, addressID, isProd) => {
           try {
             const responses: Response[] = []
             responses.push(
@@ -252,60 +242,43 @@ export default class Processor {
                 headers,
               })
             )
-            console.log(
-              '#dataPrepareCO',
-              JSON.stringify(
-                await Promise.all(responses.map((response) => response.json()))
-              )
-            )
-          } catch (error) {
-            console.log('#error gagal prepare CO')
-          }
-        },
-        this.urlQuery,
-        this.headers,
-        this.addressID
-      )
-      console.info('berhasil prepare CO')
-    } catch (error) {
-      console.warn('gagal prepare CO')
-    }
-  }
 
-  async checkOut() {
-    console.time(`${this.name} waktu CO`)
-    try {
-      await this.page?.evaluate(
-        async (urlQuery, headers, isProd) => {
-          try {
             if (isProd) {
-              const response = await fetch(urlQuery, {
-                method: 'POST',
-                body: JSON.stringify([
-                  {
-                    operationName: 'addOrder',
-                    variables: {
-                      params: {
-                        paymentID: 57,
-                        paymentCode: 'VABCA',
-                        paymentName: 'BCA Virtual Account',
-                        paymentParentCode: 'VirtualAccount',
+              responses.push(
+                await fetch(urlQuery, {
+                  method: 'POST',
+                  body: JSON.stringify([
+                    {
+                      operationName: 'addOrder',
+                      variables: {
+                        params: {
+                          paymentID: 57,
+                          paymentCode: 'VABCA',
+                          paymentName: 'BCA Virtual Account',
+                          paymentParentCode: 'VirtualAccount',
+                        },
                       },
+                      query:
+                        'mutation addOrder($params: AddOrderRequest!) {\n  addOrder(params: $params) {\n    meta {\n      error\n      code\n      message\n    }\n    result {\n      payment {\n        status\n        orderId\n        redirectUrl\n      }\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        transaction_code\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n        total_price\n        gender\n        db\n        user_id\n        fb_login_id\n        ip_override\n        user_data {\n          email_address\n          phone_number\n          client_ip_address\n          address {\n            first_name\n            last_name\n            city\n            region\n            postal_code\n            country\n          }\n        }\n      }\n    }\n  }\n}\n',
                     },
-                    query:
-                      'mutation addOrder($params: AddOrderRequest!) {\n  addOrder(params: $params) {\n    meta {\n      error\n      code\n      message\n    }\n    result {\n      payment {\n        status\n        orderId\n        redirectUrl\n      }\n      analytic {\n        affiliation\n        coupon\n        currency\n        transaction_id\n        transaction_code\n        shipping\n        insurance\n        value\n        partial_reward\n        coupon_discount\n        shipping_discount\n        location\n        quantity\n        items {\n          item_id\n          item_name\n          affiliation\n          currency\n          discount\n          index\n          item_brand\n          item_category\n          item_category2\n          item_category3\n          item_category4\n          item_category5\n          item_list_id\n          item_list_name\n          item_variant\n          price\n          quantity\n        }\n        content_id\n        content_type\n        contents {\n          id\n          quantity\n        }\n        description\n        category_id\n        category_name\n        brand_id\n        brand_name\n        sub_brand_id\n        sub_brand_name\n        order_id\n        order_date\n        total_trx\n        shipping_fee\n        insurance_fee\n        tax\n        discount\n        partial_mw_reward\n        shipping_method\n        payment_method\n        is_dropship\n        voucher_code\n        products\n        total_price\n        gender\n        db\n        user_id\n        fb_login_id\n        ip_override\n        user_data {\n          email_address\n          phone_number\n          client_ip_address\n          address {\n            first_name\n            last_name\n            city\n            region\n            postal_code\n            country\n          }\n        }\n      }\n    }\n  }\n}\n',
-                  },
-                ]),
-                headers,
-              })
-              console.log('#dataCO', JSON.stringify(await response.json()))
+                  ]),
+                  headers,
+                })
+              )
             }
+
+            console.log(
+              `#dataCO ${JSON.stringify(
+                await Promise.all(responses.map((response) => response.json()))
+              )}`
+            )
           } catch (error) {
             console.log('#error gagal CO', error)
           }
         },
         this.urlQuery,
         this.headers,
+        this.addressID,
         this.isProd
       )
     } catch (error) {
