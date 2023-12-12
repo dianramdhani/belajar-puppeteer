@@ -2,40 +2,14 @@ import 'dotenv/config'
 import Processor from './processor'
 import { CronJob } from 'cron'
 
-const {
-  ENV,
-  BROWSER_TYPE,
-  URL,
-  URL_CART,
-  URL_QUERY,
-  URL_LIST_CO,
-  URL_PRODUCTS,
-  EMAILS,
-  PASSWORD,
-  TIME_LOGIN,
-  TIME_PAYMENT,
-  CART_STATUS,
-} = process.env
-const emails = (EMAILS ?? '').split(' ')
-const urlProducts = (URL_PRODUCTS ?? '').split(' ')
+const { ENV, URL, URL_QUERY, URL_LIST_CO, TIME_PAYMENT, BROWSER_COUNT } =
+  process.env
 const isProd = ENV === 'prod'
-
-const jobLogin = CronJob.from({
-  cronTime: TIME_LOGIN ?? '',
-  onTick: () => main(),
-  timeZone: 'Asia/Jakarta',
-})
-if (isProd) {
-  console.info('ini prod bersiaplah')
-  jobLogin.start()
-} else {
-  console.log('tenang masih dev', { CART_STATUS })
-  main()
-}
+main()
 
 function main() {
-  urlProducts.forEach(async (urlProduct, index) => {
-    const processor = new Processor(emails[index].split('@')[0], isProd)
+  ;[...new Array(+(BROWSER_COUNT ?? 0))].forEach(async () => {
+    const processor = new Processor(isProd)
     const jobPayment = CronJob.from({
       cronTime: TIME_PAYMENT ?? '',
       onTick: () => processor.checkOut(URL_LIST_CO ?? ''),
@@ -43,25 +17,14 @@ function main() {
     })
 
     try {
-      await processor.initialize(BROWSER_TYPE ?? '')
-      await processor.login(
-        URL ?? '',
-        URL_QUERY ?? '',
-        emails[index],
-        PASSWORD ?? ''
-      )
+      await processor.initialize(URL ?? '', URL_QUERY ?? '')
 
-      if (!isProd && CART_STATUS === 'clear') {
-        await processor.clearCart(URL_CART ?? '')
+      if (isProd) {
+        console.info('ini prod bersiaplah')
+        jobPayment.start()
       } else {
-        await processor.addProductToCart(urlProduct)
-        isProd
-          ? jobPayment.start()
-          : await (async () => {
-              await new Promise((resolve) => setTimeout(resolve, 5000))
-              await processor.checkOut(URL_LIST_CO ?? '')
-            })()
-        !isProd && (await processor.clearCart(URL_CART ?? ''))
+        console.info('tenang masih dev')
+        await processor.checkOut(URL_LIST_CO ?? '')
       }
     } catch (error) {
       console.error(error)
