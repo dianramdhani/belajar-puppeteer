@@ -180,6 +180,7 @@ export default class Processor {
           try {
             const responseData = await response.json()
             this.headers = response.request().headers()
+            console.info('headers updated')
           } catch (error) {}
         }
       })
