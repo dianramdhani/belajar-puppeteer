@@ -21,19 +21,18 @@ export default class Processor {
   async initialize(browserType: string) {
     const browser = await puppeteer.launch({
       args: ['--enable-gpu'],
-      dumpio: true,
       ...(browserType === 'headless'
         ? {
-            headless: 'new',
-            defaultViewport: {
-              width: 1920,
-              height: 1080,
-            },
-          }
+          headless: 'new',
+          defaultViewport: {
+            width: 1920,
+            height: 1080,
+          },
+        }
         : {
-            headless: false,
-            defaultViewport: null,
-          }),
+          headless: false,
+          defaultViewport: null,
+        }),
     })
     this.page = (await browser.pages())[0]
     await this.page.setRequestInterception(true)
@@ -44,7 +43,7 @@ export default class Processor {
           try {
             const responseData = await response.json()
             this.headers = response.request().headers()
-          } catch (error) {}
+          } catch (error) { }
         }
       })
       .on('console', (message) => {
@@ -76,11 +75,11 @@ export default class Processor {
       })
     }
 
-    ;(async () => {
+    ; (async () => {
       try {
         const banner = await this.page?.waitForSelector('#desktopBannerWrapped')
         await banner?.evaluateHandle((el) => el.remove())
-      } catch (error) {}
+      } catch (error) { }
     })()
 
     try {
@@ -89,7 +88,7 @@ export default class Processor {
       )
       await buttonOK?.click()
       await new Promise((resolve) => setTimeout(resolve, 1000))
-    } catch (error) {}
+    } catch (error) { }
 
     try {
       const buttonLogin = await this.page?.$('#login-button')
@@ -125,7 +124,7 @@ export default class Processor {
 
     try {
       await this.deleteBanner()
-    } catch (error) {}
+    } catch (error) { }
 
     try {
       this.urlQuery = urlQuery
@@ -154,12 +153,12 @@ export default class Processor {
             } else {
               console.log('~error gak ada address id')
             }
-          } catch (error) {}
+          } catch (error) { }
         },
         urlQuery,
         this.headers
       )
-    } catch (error) {}
+    } catch (error) { }
   }
 
   async addProductToCart(urlProduct: string) {
@@ -198,7 +197,7 @@ export default class Processor {
         path: `./ss/${this.dirName}/4-cart.jpg`,
         optimizeForSpeed: true,
       })
-    } catch (error) {}
+    } catch (error) { }
   }
 
   async checkOut(urlListCO: string) {
@@ -210,7 +209,7 @@ export default class Processor {
             const responses: string[] = []
 
             try {
-              responses.push(
+              responses.push(... await Promise.all([
                 await fetch(urlQuery, {
                   method: 'POST',
                   body: JSON.stringify([
@@ -229,9 +228,7 @@ export default class Processor {
                   )
                   return jsonResponse[0].data.processCheckout.meta
                     .code as string
-                })
-              )
-              responses.push(
+                }),
                 await fetch(urlQuery, {
                   method: 'POST',
                   body: JSON.stringify([
@@ -256,7 +253,7 @@ export default class Processor {
                   console.log(`~addPreBook ${JSON.stringify(jsonResponse)}`)
                   return jsonResponse[0].data.addPreBook.meta.code as string
                 })
-              )
+              ]))
               if (isProd) {
                 responses.push(
                   await fetch(urlQuery, {
@@ -318,7 +315,7 @@ export default class Processor {
           path: `./ss/${this.dirName}/4-final-co-product.jpg`,
           optimizeForSpeed: true,
         })
-      } catch (error) {}
+      } catch (error) { }
     }
   }
 
@@ -358,6 +355,6 @@ export default class Processor {
       const banner = await this.page?.$('[id^="moe-onsite-campaign-"]')
       await banner?.evaluateHandle((el) => el.remove())
       console.info(`${this.name} delete welcome banner`)
-    } catch (error) {}
+    } catch (error) { }
   }
 }
